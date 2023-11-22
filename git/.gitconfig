@@ -1,0 +1,8 @@
+[alias]
+co = checkout
+st = status
+cm = commit -m
+can = commit --amend --no-edit
+
+[user]
+	email = leoc.001re@gmail.com
