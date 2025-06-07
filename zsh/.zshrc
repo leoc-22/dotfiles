@@ -7,7 +7,9 @@ source $ZSH/oh-my-zsh.sh
 
 # aliases
 alias vim="nvim"
+alias vi="nvim"
 alias compose="docker compose"
+alias g="./gradlew"
 
 eval "$(starship init zsh)"
 
@@ -20,3 +22,12 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 source <(fzf --zsh)
+
+# uv
+. "$HOME/.local/bin/env"
+eval "$(uv generate-shell-completion zsh)"
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
