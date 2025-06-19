@@ -3,10 +3,12 @@
 Recording how to set up a new machine
 
 - ghostty terminal
-- oh-my-zsh
-- starship.rs
 - font: berkeley mono
 - homebrew
+- oh-my-zsh
+- syntax highlighting
+- starship.rs
+- neovim & [my neovim config](https://github.com/leoc-22/nvim-config)
 - set up git
     - git config
         - set up user email & name (optional)
