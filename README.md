@@ -1,13 +1,11 @@
 # Dotfiles
 
-Recording how to set up a new machine
+Recording how to set up my new mac
 
-- ghostty terminal
-- font: berkeley mono
+- ghostty
 - homebrew
-- oh-my-zsh
-- syntax highlighting
 - starship.rs
+- fish shell
 - neovim & [my neovim config](https://github.com/leoc-22/nvim-config)
 - set up git
     - git config
