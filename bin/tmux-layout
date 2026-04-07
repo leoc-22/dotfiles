@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+LAYOUT_DIR="${TMUX_LAYOUT_DIR:-$HOME/dotfiles/tmux/layouts}"
+CMD_DELAY=0.3
+
+# Resolve layout file
+if [[ $# -ge 1 ]]; then
+    layout_file="$LAYOUT_DIR/$1.layout"
+else
+    layout_file=$(find "$LAYOUT_DIR" -name "*.layout" -type f \
+        | sed "s|.*/||; s|\.layout$||" \
+        | sort \
+        | fzf --prompt="Select layout: ") || exit 0
+    layout_file="$LAYOUT_DIR/$layout_file.layout"
+fi
+
+if [[ ! -f "$layout_file" ]]; then
+    echo "Error: Layout file not found: $layout_file"
+    exit 1
+fi
+
+# Parse session name
+session_name=""
+while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -z "$line" ]] && continue
+    if [[ "$line" =~ ^session:\ *(.*) ]]; then
+        session_name="${BASH_REMATCH[1]}"
+        break
+    fi
+done < "$layout_file"
+
+if [[ -z "$session_name" ]]; then
+    echo "Error: No 'session:' directive found in $layout_file"
+    exit 1
+fi
+
+# If session already exists, just attach/switch
+if tmux has-session -t "=$session_name" 2>/dev/null; then
+    if [[ -n "$TMUX" ]]; then
+        tmux switch-client -t "$session_name"
+    else
+        tmux attach-session -t "$session_name"
+    fi
+    exit 0
+fi
+
+# Build the session
+window_index=0
+pane_count=1
+first_window=true
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Strip inline comments and trim whitespace
+    line="${line%%#*}"
+    line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -z "$line" ]] && continue
+
+    if [[ "$line" =~ ^session: ]]; then
+        continue
+
+    elif [[ "$line" =~ ^window:\ *(.*) ]]; then
+        window_name="${BASH_REMATCH[1]}"
+        pane_count=1
+
+        if $first_window; then
+            tmux new-session -d -s "$session_name" -n "$window_name"
+            first_window=false
+            window_index=1
+        else
+            window_index=$((window_index + 1))
+            tmux new-window -t "$session_name" -n "$window_name"
+        fi
+        sleep "$CMD_DELAY"
+
+    elif [[ "$line" =~ ^cmd:\ *(.*) ]]; then
+        cmd="${BASH_REMATCH[1]}"
+        target="$session_name:$window_index.$pane_count"
+        tmux send-keys -t "$target" "$cmd" Enter
+        sleep "$CMD_DELAY"
+
+    elif [[ "$line" =~ ^split:\ *(.*) ]]; then
+        direction="${BASH_REMATCH[1]}"
+        target="$session_name:$window_index.$pane_count"
+
+        if [[ "$direction" == "horizontal" ]]; then
+            tmux split-window -h -t "$target"
+        else
+            tmux split-window -v -t "$target"
+        fi
+
+        pane_count=$((pane_count + 1))
+        sleep "$CMD_DELAY"
+    fi
+done < "$layout_file"
+
+# Select first window before attaching
+tmux select-window -t "$session_name:1"
+
+if [[ -n "$TMUX" ]]; then
+    tmux switch-client -t "$session_name"
+else
+    tmux attach-session -t "$session_name"
+fi

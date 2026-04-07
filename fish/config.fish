@@ -21,6 +21,8 @@ function nvm
 end
 nvm use default --silent
 
+fish_add_path ~/dotfiles/bin
+
 # THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 set -gx SDKMAN_DIR "$HOME/.sdkman"
 if test -s "$HOME/.sdkman/bin/sdkman-init.sh"
