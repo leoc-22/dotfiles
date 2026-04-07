@@ -1,0 +1,21 @@
+session: work
+
+windows:
+  - name: cow
+    commands:
+      - z cow
+      - pnpm dev
+
+  - name: cob
+    commands:
+      - z cob
+      - pnpm dev
+
+  - name: cos
+    commands:
+      - z cos
+      - ./gradlew bootRun
+    panes:
+      - split: horizontal
+        commands:
+          - mysql -P 3301 --protocol=tcp -u root -ppaymenow
