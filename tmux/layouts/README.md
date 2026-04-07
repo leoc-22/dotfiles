@@ -1,17 +1,25 @@
 # tmux-layout
 
-A lightweight tmux workspace manager inspired by ThePrimeagen's sessionizer. Define your tmux layouts declaratively in simple text files, then spin up entire sessions with one command.
+A lightweight tmux workspace manager inspired by ThePrimeagen's sessionizer. Define your tmux layouts as YAML files, then spin up entire sessions with one command.
+
+## Prerequisites
+
+- [yq](https://github.com/mikefarah/yq) - YAML processor for bash
+  ```bash
+  brew install yq
+  ```
+- [fzf](https://github.com/junegunn/fzf) - fuzzy finder (optional, for layout picker)
 
 ## Installation
 
 1. **Add `bin/` to your PATH**
 
-   Fish shell (add to `config.fish`):
+   Fish shell (already in `config.fish`):
    ```fish
    fish_add_path ~/dotfiles/bin
    ```
 
-   Zsh (add to `.zshrc`):
+   Zsh (already in `.zshrc`):
    ```bash
    export PATH="$HOME/dotfiles/bin:$PATH"
    ```
@@ -42,51 +50,62 @@ If a session with the same name already exists, the script will simply attach/sw
 
 ## Layout File Format
 
-Layout files live in `~/dotfiles/tmux/layouts/` with a `.layout` extension. The format uses 4 keywords:
+Layout files live in `~/dotfiles/tmux/layouts/` with a `.yaml` extension.
 
-| Keyword | Description |
-|---------|-------------|
-| `session: <name>` | **Required.** Names the tmux session. Must appear before any `window:` line. |
-| `window: <name>` | Creates a new window with the given name. |
-| `cmd: <command>` | Sends a command to the current pane. Multiple `cmd:` lines run sequentially. |
-| `split: horizontal\|vertical` | Splits the current pane. `horizontal` = side-by-side, `vertical` = top/bottom. Subsequent `cmd:` lines target the new pane. |
+```yaml
+session: <name>          # Required. Names the tmux session.
 
-Lines starting with `#` are comments. Blank lines are ignored.
+windows:
+  - name: <window-name>  # Creates a named window.
+    commands:             # Commands to run in the main pane (sequential).
+      - <command>
+      - <command>
+    panes:                # Optional. Additional split panes.
+      - split: horizontal # horizontal = side-by-side, vertical = top/bottom
+        commands:
+          - <command>
+```
 
 ## Example
 
-```
-# ~/dotfiles/tmux/layouts/work.layout
+```yaml
+# ~/dotfiles/tmux/layouts/work.yaml
 session: work
 
-window: cow
-cmd: z cow
-cmd: pnpm dev
+windows:
+  - name: cow
+    commands:
+      - z cow
+      - pnpm dev
 
-window: cob
-cmd: z cob
-cmd: pnpm dev
+  - name: cob
+    commands:
+      - z cob
+      - pnpm dev
 
-window: cos
-cmd: z cos
-cmd: ./gradlew bootRun
-split: horizontal
-cmd: mysql -P 3301 --protocol=tcp -u root -ppaymenow
+  - name: cos
+    commands:
+      - z cos
+      - ./gradlew bootRun
+    panes:
+      - split: horizontal
+        commands:
+          - mysql -P 3301 --protocol=tcp -u root -ppaymenow
 ```
 
 This creates a session called "work" with 3 windows:
-- **cow** — navigates to the cow project and runs the dev server
-- **cob** — navigates to the cob project and runs the dev server
-- **cos** — navigates to the cos project, runs the Gradle app, and opens a MySQL client in a side-by-side split pane
+- **cow** -- navigates to the cow project and runs the dev server
+- **cob** -- navigates to the cob project and runs the dev server
+- **cos** -- navigates to the cos project, runs the Gradle app, and opens a MySQL client in a side-by-side split pane
 
 ## Creating a New Layout
 
-1. Create a new file in `~/dotfiles/tmux/layouts/`:
+1. Create a new YAML file in `~/dotfiles/tmux/layouts/`:
    ```bash
-   vim ~/dotfiles/tmux/layouts/myproject.layout
+   vim ~/dotfiles/tmux/layouts/myproject.yaml
    ```
 
-2. Add your layout definition using the keywords above.
+2. Define your session, windows, and panes using the format above.
 
 3. Run it:
    ```bash
@@ -97,4 +116,4 @@ This creates a session called "work" with 3 windows:
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `TMUX_LAYOUT_DIR` | `~/dotfiles/tmux/layouts` | Directory to search for `.layout` files |
+| `TMUX_LAYOUT_DIR` | `~/dotfiles/tmux/layouts` | Directory to search for `.yaml` files |

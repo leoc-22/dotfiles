@@ -3,15 +3,21 @@
 LAYOUT_DIR="${TMUX_LAYOUT_DIR:-$HOME/dotfiles/tmux/layouts}"
 CMD_DELAY=0.3
 
+if ! command -v yq &>/dev/null; then
+    echo "Error: yq is required but not installed."
+    echo "Install it with: brew install yq"
+    exit 1
+fi
+
 # Resolve layout file
 if [[ $# -ge 1 ]]; then
-    layout_file="$LAYOUT_DIR/$1.layout"
+    layout_file="$LAYOUT_DIR/$1.yaml"
 else
-    layout_file=$(find "$LAYOUT_DIR" -name "*.layout" -type f \
-        | sed "s|.*/||; s|\.layout$||" \
+    layout_file=$(find "$LAYOUT_DIR" -name "*.yaml" -type f \
+        | sed "s|.*/||; s|\.yaml$||" \
         | sort \
         | fzf --prompt="Select layout: ") || exit 0
-    layout_file="$LAYOUT_DIR/$layout_file.layout"
+    layout_file="$LAYOUT_DIR/$layout_file.yaml"
 fi
 
 if [[ ! -f "$layout_file" ]]; then
@@ -19,20 +25,10 @@ if [[ ! -f "$layout_file" ]]; then
     exit 1
 fi
 
-# Parse session name
-session_name=""
-while IFS= read -r line || [[ -n "$line" ]]; do
-    line="${line%%#*}"
-    line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    [[ -z "$line" ]] && continue
-    if [[ "$line" =~ ^session:\ *(.*) ]]; then
-        session_name="${BASH_REMATCH[1]}"
-        break
-    fi
-done < "$layout_file"
+session_name=$(yq '.session' "$layout_file")
 
-if [[ -z "$session_name" ]]; then
-    echo "Error: No 'session:' directive found in $layout_file"
+if [[ -z "$session_name" || "$session_name" == "null" ]]; then
+    echo "Error: No 'session' key found in $layout_file"
     exit 1
 fi
 
@@ -47,53 +43,55 @@ if tmux has-session -t "=$session_name" 2>/dev/null; then
 fi
 
 # Build the session
-window_index=0
-pane_count=1
-first_window=true
+window_count=$(yq '.windows | length' "$layout_file")
 
-while IFS= read -r line || [[ -n "$line" ]]; do
-    # Strip inline comments and trim whitespace
-    line="${line%%#*}"
-    line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    [[ -z "$line" ]] && continue
+for ((w = 0; w < window_count; w++)); do
+    window_name=$(yq ".windows[$w].name" "$layout_file")
+    window_index=$((w + 1))
 
-    if [[ "$line" =~ ^session: ]]; then
-        continue
+    # Create session on first window, new window otherwise
+    if [[ $w -eq 0 ]]; then
+        tmux new-session -d -s "$session_name" -n "$window_name"
+    else
+        tmux new-window -t "$session_name" -n "$window_name"
+    fi
+    sleep "$CMD_DELAY"
 
-    elif [[ "$line" =~ ^window:\ *(.*) ]]; then
-        window_name="${BASH_REMATCH[1]}"
-        pane_count=1
+    # Run commands on the main pane
+    pane_count=1
+    target="$session_name:$window_index.$pane_count"
 
-        if $first_window; then
-            tmux new-session -d -s "$session_name" -n "$window_name"
-            first_window=false
-            window_index=1
-        else
-            window_index=$((window_index + 1))
-            tmux new-window -t "$session_name" -n "$window_name"
-        fi
-        sleep "$CMD_DELAY"
-
-    elif [[ "$line" =~ ^cmd:\ *(.*) ]]; then
-        cmd="${BASH_REMATCH[1]}"
-        target="$session_name:$window_index.$pane_count"
+    cmd_count=$(yq ".windows[$w].commands | length" "$layout_file")
+    for ((c = 0; c < cmd_count; c++)); do
+        cmd=$(yq ".windows[$w].commands[$c]" "$layout_file")
         tmux send-keys -t "$target" "$cmd" Enter
         sleep "$CMD_DELAY"
+    done
 
-    elif [[ "$line" =~ ^split:\ *(.*) ]]; then
-        direction="${BASH_REMATCH[1]}"
-        target="$session_name:$window_index.$pane_count"
+    # Create split panes
+    pane_total=$(yq ".windows[$w].panes | length" "$layout_file")
+    for ((p = 0; p < pane_total; p++)); do
+        split_dir=$(yq ".windows[$w].panes[$p].split" "$layout_file")
 
-        if [[ "$direction" == "horizontal" ]]; then
+        if [[ "$split_dir" == "horizontal" ]]; then
             tmux split-window -h -t "$target"
         else
             tmux split-window -v -t "$target"
         fi
 
         pane_count=$((pane_count + 1))
+        target="$session_name:$window_index.$pane_count"
         sleep "$CMD_DELAY"
-    fi
-done < "$layout_file"
+
+        # Run commands in the new pane
+        pane_cmd_count=$(yq ".windows[$w].panes[$p].commands | length" "$layout_file")
+        for ((pc = 0; pc < pane_cmd_count; pc++)); do
+            cmd=$(yq ".windows[$w].panes[$p].commands[$pc]" "$layout_file")
+            tmux send-keys -t "$target" "$cmd" Enter
+            sleep "$CMD_DELAY"
+        done
+    done
+done
 
 # Select first window before attaching
 tmux select-window -t "$session_name:1"
