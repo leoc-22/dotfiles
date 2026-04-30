@@ -6,6 +6,9 @@ Recording how to set up my new mac
 - homebrew
 - starship.rs
 - fish shell
+- tmux
+    - install [tmux-workspaces](https://github.com/leoc-22/tmux-workspaces) and ensure `tmux-workspaces` is on `PATH`
+    - use `tmux-workspaces` to launch project sessions and YAML layouts
 - neovim & [my neovim config](https://github.com/leoc-22/nvim-config)
 - set up git
     - git config
